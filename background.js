@@ -9,11 +9,42 @@ var uploader = {
 	localStorage.setItem('upload_refresh_token', null);
     },
     'uploadNow': function() {
-	if (!upload_url) {
+	function uploadInternal() {
+	}
+	function findWorksheet(callback) {
+	    var xhr = new XMLHttpRequest();
+	    xhr.open('GET', 'https://spreadsheets.google.com/feeds/worksheets/' + key + '/private/full?alt=json');
+	    xhr.onreadystatechange = function() {
+		if (xhr.readyState != 4) {
+		    return;
+		}
+		var data = JSON.parse(xhr.responseText);
+		console.log(data);
+	    }
+	    xhr.setRequestHeader('GData-Version', '3.0');
+	    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+	    xhr.send();
+	}
+	if (!this.upload_url) {
 	    return;
 	}
+	var match = /key=([a-zA-Z0-9]*)/.exec(this.upload_url);
+	if (!match) {
+	    return;
+	}
+	var key = match[1];
+	var token = localStorage.getItem('upload_sheet_token');
+	if (!token) {
+	    return;
+	}
+	var expires = localStorage.getItem('upload_expires');
+	if ((new Date()).getTime() > expires) {
+	    refreshOAuthToken();
+	}
+	uploadInternal();
     }
 };
+
 
 var activityRecorder = {
     'log': [],

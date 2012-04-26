@@ -77,5 +77,6 @@ function refreshOAuth2Token(callback) {
     var xhr = new XMLHttpRequest();
     xhr.open('POST', 'https://accounts.google.com/o/oauth2/token');
     xhr.onreadystatechange = OAuth2ResponseCallback(xhr, callback);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     xhr.send(body);
 }
