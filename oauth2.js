@@ -9,7 +9,7 @@ function OAuth2TokenRequest() {
 	{url:'https://accounts.google.com/o/oauth2/auth?' +
 	 'response_type=code&client_id=' + encodeURIComponent(client_id) +
 	 '&redirect_uri=urn:ietf:wg:oauth:2.0:oob' + '&scope=' +
-	 encodeURIComponent(scope) + '&access_type=online',
+	 encodeURIComponent(scope) + '&access_type=offline',
 	 type:'popup'});
     var timer = window.setInterval(function() {
 	chrome.windows.getLastFocused({populate:true}, function(w) {
@@ -42,7 +42,11 @@ function OAuth2ResponseCallback(xhr, callback) {
 	var result = JSON.parse(xhr.responseText);
 	localStorage.setItem('upload_sheet_token', result['access_token']);
 	localStorage.setItem('upload_expires', (new Date()).getTime() + result['expires_in'] * 1000);
-	localStorage.setItem('upload_refresh_token', result['refresh_token']);
+	if (result['refresh_token']) {
+	    localStorage.setItem('upload_refresh_token', result['refresh_token']);
+	} else {
+	    localStorage.setTime('upload_refresh_token', null);
+	}
 	if (callback) {
 	    callback(true);
 	}
@@ -69,7 +73,7 @@ function refreshOAuth2Token(callback) {
 	return;
     }
 
-    var body = 'refresh_token=' + encodeURIComponent(refresh_token) +
+    var body = 'refresh_token=' + refresh_token +
 	'&client_id=' + encodeURIComponent(client_id) +
 	'&cleint_secret=' + encodeURIComponent(client_secret) +
 	'&grant_type=refresh_token';

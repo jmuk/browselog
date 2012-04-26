@@ -9,22 +9,81 @@ var uploader = {
 	localStorage.setItem('upload_refresh_token', null);
     },
     'uploadNow': function() {
-	function uploadInternal() {
+	function FillCommonHeaders(xhr) {
+	    xhr.setRequestHeader('GData-Version', '3.0');
+	    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
 	}
-	function findWorksheet(callback) {
+	function RunSpreadsheetAPI(method, path, callback) {
 	    var xhr = new XMLHttpRequest();
-	    xhr.open('GET', 'https://spreadsheets.google.com/feeds/worksheets/' + key + '/private/full?alt=json');
+	    xhr.open(method, 'https://spreadsheets.google.com/feeds/' + path);
 	    xhr.onreadystatechange = function() {
 		if (xhr.readyState != 4) {
 		    return;
 		}
-		var data = JSON.parse(xhr.responseText);
-		console.log(data);
+		console.log(xhr.responseText);
+		if (callback) {
+		    callback(xhr);
+		}
 	    }
-	    xhr.setRequestHeader('GData-Version', '3.0');
-	    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+	    FillCommonHeaders(xhr);
 	    xhr.send();
 	}
+	function uploadCells(worksheet_id, last_row) {
+	    function escapeParam(str) {
+		return String(str).replace('&', '&amp;').replace('"', '&quot;');
+	    }
+	    function postData(row, col, data) {
+		var postdata = '<?xml version="1.0" encoding="UTF-8"?><entry xmlns="http://www.w3.org/2005/Atom" xmlns:gs="http://schemas.google.com/spreadsheets/2006" ><id>https://spreadsheets.google.com/feeds/cells/' + worksheet_id + '/private/full/R' + row + 'C' + col + '</id><link rel="edit" type="application/atom+xml" href="https://spreadsheets.google.com/feeds/cells/' + worksheet_id + '/private/full/R' + row + 'C' + col + '"/><gs:cell row="' + row + '" col="' + col + '" inputValue="' + escapeParam(data) + '"/></entry>';
+		var xhr = new XMLHttpRequest();
+		xhr.open('PUT', 'https://spreadsheets.google.com/feeds/cells/' + worksheet_id + '/private/full/R' + row + 'C' + col);
+		FillCommonHeaders(xhr);
+		xhr.setRequestHeader('Content-Type', 'application/atom+xml');
+		xhr.setRequestHeader('If-None-Match', '');
+		xhr.send(postdata);
+	    }
+	    for (var i = 0; i < activityRecorder.log.length - 1; i++) {
+		var row = last_row + i + 1;
+		var activity = activityRecorder.log[i];
+		var start = activity.starttime;
+		var date = (start.getMonth() + 1) + '/' + start.getDate();
+		var time = (start.getHours()) + ':' + start.getMinutes() + ':' + start.getSeconds();
+		postData(row, 1, date);
+		postData(row, 2, time);
+		postData(row, 3, Math.floor((activity.endtime.getTime() - activity.starttime.getTime()) / 1000));
+		postData(row, 4, activity.url);
+		postData(row, 5, (activity.opener_url || ''));
+		postData(row, 6, (activity.tag || ''));
+	    }
+	}
+	function findLastCell(worksheet_id) {
+	    RunSpreadsheetAPI('GET', 'cells/' + worksheet_id + '/private/full?alt=json', function(xhr) {
+		var data = JSON.parse(xhr.responseText);
+		var entries = data.feed.entry;
+		var max_row = 0;
+		for (var i = 0; i < entries.length; i++) {
+		    var entry = entries[i];
+		    var row = Number(entry['gs$cell']['row']);
+		    if (max_row < row) {
+			max_row = row;
+		    }
+		}
+		uploadCells(worksheet_id, max_row);
+	    });
+	}
+	function findWorksheet() {
+	    RunSpreadsheetAPI('GET', 'worksheets/' + key + '/private/full?alt=json', function(xhr) {
+		var data = JSON.parse(xhr.responseText);
+		var sheet_id = data.feed.entry[0].id['$t'];
+		var prefix = 'https://spreadsheets.google.com/feeds/worksheets/';
+		if (sheet_id.indexOf(prefix) == 0) {
+		    findLastCell(sheet_id.substring(prefix.length));
+		}
+	    });
+	}
+	function uploadInternal() {
+	    findWorksheet();
+	}
+
 	if (!this.upload_url) {
 	    return;
 	}
@@ -39,12 +98,11 @@ var uploader = {
 	}
 	var expires = localStorage.getItem('upload_expires');
 	if ((new Date()).getTime() > expires) {
-	    refreshOAuthToken();
+	    refreshOAuth2Token(function(result) { if (result) { uploadInternal() }});
 	}
 	uploadInternal();
     }
 };
-
 
 var activityRecorder = {
     'log': [],
