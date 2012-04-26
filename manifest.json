@@ -6,7 +6,8 @@
   "background": {
     "scripts": ["background.js"]
   },
+  "options_page": "options.html",
   "permissions": [
-    "tabs", "background"
+    "tabs", "background", "https://accounts.google.com/o/oauth2/token"
   ]
 }

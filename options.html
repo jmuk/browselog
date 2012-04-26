@@ -1,0 +1,21 @@
+<html>
+  <head>
+    <title>option for browselog</title>
+    <script src="oauth2.js"></script>
+    <script src="options.js"></script>
+  </head>
+  <body>
+    <h1>spreadsheet URL</h1>
+    <div>
+      <div style="display:none" id="show_sheet_url"></div>
+      <form onsubmit="updateSheetURL()" id="sheet_url_form">
+	input the spreadsheet URL: <input type="url" id="sheet_url" size="40"></input> <input type="submit" name="update" value="update"></input>
+      </form>
+      <form onsubmit="uploadNow()" id="upload_sheet_form">
+	<input type="submit" name="upload" value="upload now"></input>
+      </form>
+    </div>
+    <h1>on memory data</h1>
+    <div id="onmemory_data"></div>
+  </body>
+</html>
