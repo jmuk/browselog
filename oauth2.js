@@ -5,10 +5,32 @@ var client_secret = '';
 
 function OAuth2TokenRequest() {
     var self_url = chrome.extension.getURL('/options.html');
-    location.href = 'https://accounts.google.com/o/oauth2/auth?' +
-	'response_type=token&client_id=' + encodeURIComponent(client_id) +
-	'&redirect_uri=' + encodeURIComponent(self_url) + '&scope=' +
-	encodeURIComponent(scope) + '&access_type=online';
+    chrome.windows.create(
+	{url:'https://accounts.google.com/o/oauth2/auth?' +
+	 'response_type=code&client_id=' + encodeURIComponent(client_id) +
+	 '&redirect_uri=urn:ietf:wg:oauth:2.0:oob' + '&scope=' +
+	 encodeURIComponent(scope) + '&access_type=online',
+	 type:'popup'});
+    var timer = window.setInterval(function() {
+	chrome.windows.getLastFocused({populate:true}, function(w) {
+	    for (var i = 0; i < w.tabs.length; ++i) {
+		var tab = w.tabs[i];
+		if (!tab.active) {
+		    continue;
+		}
+		var title = tab.title;
+		var codePos = title.indexOf('code=');
+		if (codePos > 0) {
+		    var code = title.substring(
+			codePos + 'code='.length, title.length);
+		    console.log(code);
+		    handleOAuth2Code(code);
+		    chrome.windows.remove(w.id);
+		    window.clearInterval(timer);
+		}
+	    }
+	});
+    }, 100);
 }
 
 
@@ -19,32 +41,23 @@ function OAuth2ResponseCallback(xhr, callback) {
 	}
 	var result = JSON.parse(xhr.responseText);
 	localStorage.setItem('upload_sheet_token', result['access_token']);
-	localStorage.setItem('upload_expires', (new Date()).getItem() + result['expires_in'] * 1000);
+	localStorage.setItem('upload_expires', (new Date()).getTime() + result['expires_in'] * 1000);
 	localStorage.setItem('upload_refresh_token', result['refresh_token']);
-	callback(true);
+	if (callback) {
+	    callback(true);
+	}
     }
 }
 
-function handleOAuth2Response(return_url) {
-    var params = {};
-    var param_array = location.search.substring(1).split('&');
-    for (var i = 0; i < param_array.length; ++i) {
-	var vs = param_array[i].split('=');
-	if (vs.length != 2) {
-	    continue;
-	}
-	params[vs[0]] = vs[1];
-    }
-    var body = 'code=' + encodeURIComponent(params['state']) +
-	'&client_id=' + encodeURIComponent(client_id) + '&client_secret=' +
-	encodeURIComponent(client_secret) + '&redirect_uri=' +
-	encodeURIComponent(return_url) + '&grant_type=authorization_code';
+function handleOAuth2Code(code) {
+    var body = 'code=' + code + '&client_id=' + encodeURIComponent(client_id) +
+	'&client_secret=' + encodeURIComponent(client_secret) +
+	'&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code';
 
     var xhr = new XMLHttpRequest();
     xhr.open('POST', 'https://accounts.google.com/o/oauth2/token');
-    xhr.onreadystatechange = OAuth2ResponseCallback(xhr, function() {
-	location.href = return_url;
-    });
+    xhr.onreadystatechange = OAuth2ResponseCallback(xhr);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     xhr.send(body);
 }
 

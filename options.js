@@ -56,10 +56,6 @@ function uploadNow() {
 
 
 window.addEventListener('load', function() {
-    if (location.search) {
-	handleOAuth2Response(chrome.extension.getURL('/options.html'));
-	return;
-    }
     redrawSheetURL();
     redrawLog();
     document.getElementById('sheet_url_form').onsubmit = updateSheetURL;
