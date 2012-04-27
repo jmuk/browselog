@@ -21,7 +21,6 @@ function startUploadTask(key, token, in_activities, final_callback) {
 	    if (xhr.readyState != 4) {
 		return;
 	    }
-	    console.log(xhr.responseText);
 	    if (callback) {
 		callback(xhr);
 	    }

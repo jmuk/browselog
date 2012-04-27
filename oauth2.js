@@ -44,8 +44,6 @@ function OAuth2ResponseCallback(xhr, callback) {
 	localStorage.setItem('upload_expires', (new Date()).getTime() + result['expires_in'] * 1000);
 	if (result['refresh_token']) {
 	    localStorage.setItem('upload_refresh_token', result['refresh_token']);
-	} else {
-	    localStorage.setTime('upload_refresh_token', null);
 	}
 	if (callback) {
 	    callback(true);

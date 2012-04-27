@@ -1,6 +1,7 @@
 var uploader = {
     'upload_url': null,
     'last_upload_url': null,
+    'last_uploaded': null,
     'setUploadURL': function(url) {
 	this.upload_url = url;
 	localStorage.setItem('upload_sheet_url', url);
@@ -26,10 +27,21 @@ var uploader = {
 	    return;
 	}
 	var expires = localStorage.getItem('upload_expires');
+	last_uploaded = new Date();
 	if ((new Date()).getTime() > expires) {
 	    refreshOAuth2Token(function(result) { if (result) { startUploadTask(key, token, activityRecorder.log, OnUploadFinished) }});
 	}
 	startUploadTask(key, token, activityRecorder.log, OnUploadFinished);
+    },
+    'uploadTask': function(self) {
+	return function () {
+	    var now = new Date();
+	    if (self.last_uploaded &&
+		(now.getTime() - self.last_uploaded.getTime() < 10 * 1000)) {
+		return;
+	    }
+	    self.uploadNow();
+	};
     }
 };
 
@@ -126,4 +138,5 @@ chrome.windows.onFocusChanged.addListener(function(windowId) {
 
 window.addEventListener('load', function() {
     uploader.upload_url = localStorage.getItem('upload_sheet_url');
+    window.setInterval(uploader.uploadTask(uploader), 60 * 1000);
 });
