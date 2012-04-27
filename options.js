@@ -7,7 +7,6 @@ function redrawSheetURL() {
 	anchor.href = url;
 	anchor.appendChild(document.createTextNode(url));
 	div.appendChild(anchor);
-	div.appendChild(document.createTextNode(localStorage.getItem('upload_sheet_token')));
 	div.style.display = 'block';
     } else {
 	div.style.display = 'none';

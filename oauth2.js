@@ -75,7 +75,7 @@ function refreshOAuth2Token(callback) {
 
     var body = 'refresh_token=' + refresh_token +
 	'&client_id=' + encodeURIComponent(client_id) +
-	'&cleint_secret=' + encodeURIComponent(client_secret) +
+	'&client_secret=' + encodeURIComponent(client_secret) +
 	'&grant_type=refresh_token';
 
     var xhr = new XMLHttpRequest();

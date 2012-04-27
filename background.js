@@ -9,79 +9,8 @@ var uploader = {
 	localStorage.setItem('upload_refresh_token', null);
     },
     'uploadNow': function() {
-	function FillCommonHeaders(xhr) {
-	    xhr.setRequestHeader('GData-Version', '3.0');
-	    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-	}
-	function RunSpreadsheetAPI(method, path, callback) {
-	    var xhr = new XMLHttpRequest();
-	    xhr.open(method, 'https://spreadsheets.google.com/feeds/' + path);
-	    xhr.onreadystatechange = function() {
-		if (xhr.readyState != 4) {
-		    return;
-		}
-		console.log(xhr.responseText);
-		if (callback) {
-		    callback(xhr);
-		}
-	    }
-	    FillCommonHeaders(xhr);
-	    xhr.send();
-	}
-	function uploadCells(worksheet_id, last_row) {
-	    function escapeParam(str) {
-		return String(str).replace('&', '&amp;').replace('"', '&quot;');
-	    }
-	    function postData(row, col, data) {
-		var postdata = '<?xml version="1.0" encoding="UTF-8"?><entry xmlns="http://www.w3.org/2005/Atom" xmlns:gs="http://schemas.google.com/spreadsheets/2006" ><id>https://spreadsheets.google.com/feeds/cells/' + worksheet_id + '/private/full/R' + row + 'C' + col + '</id><link rel="edit" type="application/atom+xml" href="https://spreadsheets.google.com/feeds/cells/' + worksheet_id + '/private/full/R' + row + 'C' + col + '"/><gs:cell row="' + row + '" col="' + col + '" inputValue="' + escapeParam(data) + '"/></entry>';
-		var xhr = new XMLHttpRequest();
-		xhr.open('PUT', 'https://spreadsheets.google.com/feeds/cells/' + worksheet_id + '/private/full/R' + row + 'C' + col);
-		FillCommonHeaders(xhr);
-		xhr.setRequestHeader('Content-Type', 'application/atom+xml');
-		xhr.setRequestHeader('If-None-Match', '');
-		xhr.send(postdata);
-	    }
-	    for (var i = 0; i < activityRecorder.log.length - 1; i++) {
-		var row = last_row + i + 1;
-		var activity = activityRecorder.log[i];
-		var start = activity.starttime;
-		var date = (start.getMonth() + 1) + '/' + start.getDate();
-		var time = (start.getHours()) + ':' + start.getMinutes() + ':' + start.getSeconds();
-		postData(row, 1, date);
-		postData(row, 2, time);
-		postData(row, 3, Math.floor((activity.endtime.getTime() - activity.starttime.getTime()) / 1000));
-		postData(row, 4, activity.url);
-		postData(row, 5, (activity.opener_url || ''));
-		postData(row, 6, (activity.tag || ''));
-	    }
-	}
-	function findLastCell(worksheet_id) {
-	    RunSpreadsheetAPI('GET', 'cells/' + worksheet_id + '/private/full?alt=json', function(xhr) {
-		var data = JSON.parse(xhr.responseText);
-		var entries = data.feed.entry;
-		var max_row = 0;
-		for (var i = 0; i < entries.length; i++) {
-		    var entry = entries[i];
-		    var row = Number(entry['gs$cell']['row']);
-		    if (max_row < row) {
-			max_row = row;
-		    }
-		}
-		uploadCells(worksheet_id, max_row);
-	    });
-	}
-	function findWorksheet() {
-	    RunSpreadsheetAPI('GET', 'worksheets/' + key + '/private/full?alt=json', function(xhr) {
-		var data = JSON.parse(xhr.responseText);
-		var sheet_id = data.feed.entry[0].id['$t'];
-		var prefix = 'https://spreadsheets.google.com/feeds/worksheets/';
-		if (sheet_id.indexOf(prefix) == 0) {
-		    findLastCell(sheet_id.substring(prefix.length));
-		}
-	    });
-	}
-	function uploadInternal() {
-	    findWorksheet();
+	function OnUploadFinished(activities) {
+	    activityRecorder.log = activityRecorder.log.slice(activities.length);
 	}
 
 	if (!this.upload_url) {
@@ -98,9 +27,9 @@ var uploader = {
 	}
 	var expires = localStorage.getItem('upload_expires');
 	if ((new Date()).getTime() > expires) {
-	    refreshOAuth2Token(function(result) { if (result) { uploadInternal() }});
+	    refreshOAuth2Token(function(result) { if (result) { startUploadTask(key, token, activityRecorder.log, OnUploadFinished) }});
 	}
-	uploadInternal();
+	startUploadTask(key, token, activityRecorder.log, OnUploadFinished);
     }
 };
 
@@ -161,9 +90,18 @@ chrome.tabs.onActivated.addListener(function(activeInfo) {
 });
 
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-    if (changeInfo.status == "complete") {
-	activityRecorder.recordNewTab(tab);
+    if (!tab.active) {
+	return;
     }
+    if (changeInfo.status != "complete") {
+	return;
+    }
+    chrome.windows.get(tab.windowId, null, function(w) {
+	if (!w.focused) {
+	    return;
+	}
+	activityRecorder.recordNewTab(tab);
+    });
 });
 
 chrome.windows.onFocusChanged.addListener(function(windowId) {
