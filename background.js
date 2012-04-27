@@ -72,20 +72,27 @@ var activityRecorder = {
 	    self.log.push(newRecord);
 	    self.tabs[tab.id] = newRecord;
 	}
+	function cleanupURL(url) {
+	    var hashpos = url.indexOf('#');
+	    if (hashpos >= 0) {
+		url = url.substring(0, hashpos);
+	    }
+	    return url;
+	}
 	if (tab.status != 'complete') {
 	    return;
 	}
 	var newRecord = {
-	    url: tab.url,
+	    url: cleanupURL(tab.url),
 	    starttime: new Date(),
 	    endtime: new Date()
 	};
 	if (activityRecorder.tabs[tab.id]) {
-	    newRecord.opener_url = activityRecorder.tabs[tab.id].url;
+	    newRecord.opener_url = cleanupURL(activityRecorder.tabs[tab.id].url);
 	    recordNewTabInternal(newRecord);
 	} else if (tab.openerTabId) {
 	    chrome.tabs.get(tab.openerTabId, function(tab) {
-		newRecord.opener_url = tab.url;
+		newRecord.opener_url = cleanupURL(tab.url);
 		recordNewTabInternal(newRecord);
 	    });
 	} else {
